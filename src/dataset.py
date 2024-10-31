@@ -96,12 +96,11 @@ class ECommerceDS(Dataset):
         
     def create_graph(self, unpadded_products):
         zero_index_products = self.zero_index_products(unpadded_products)
-        all_edges = self.compute_edges(zero_index_products, edge_type="outgoing")
-        unique_edges, freq = torch.unique(all_edges, dim=1, return_counts=True)
 
-        # Count total occurrences of edges for each source node
+        all_edges = self.compute_edges(zero_index_products, edge_type="outgoing")
+        
+        unique_edges, freq = torch.unique(all_edges, dim=1, return_counts=True)
         source_counts = torch.bincount(all_edges[0])
-        # Initialize a weights tensor with zeros
         weights = torch.zeros(unique_edges.shape[1])
         # Calculate weights for each unique edge
         for i in range(unique_edges.shape[1]):

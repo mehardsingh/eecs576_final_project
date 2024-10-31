@@ -33,10 +33,10 @@ class GNNWithEmbeddings(torch.nn.Module):
         return x
     
 
-edge_index = torch.tensor([[10, 0, 1, 1, 2],
-                           [1, 2, 0, 2, 1]], dtype=torch.long)
-x = torch.tensor([[0], [1], [2]], dtype=torch.long)
-data = Data(x=x, edge_index=edge_index)
+edge_index = torch.tensor([[0, 0, 1, 1, 2],
+                           [1, 2, 0, 2, 1]], dtype=torch.long) # 2x num_edges
+x = torch.tensor([[0], [1], [100]], dtype=torch.long) # Nx1
+data = Data(x=x, edge_index=edge_index, edge_weights=...)
 
 data_list = [data]
 loader = DataLoader(data_list, batch_size=1)
