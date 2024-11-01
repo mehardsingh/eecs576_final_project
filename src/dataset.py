@@ -2,21 +2,23 @@ import torch
 import json
 import random
 import numpy as np
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
+from torch_geometric.loader import DataLoader
+from torch_geometric.data import Data
+import pandas as pd
 
 class ECommerceDS(Dataset):
-    def __init__(self, filepath, max_len, product2token, padding_token=-1, mask_token=-1, repeat_edges=True, mask=0.0):
+    def __init__(self, filepath, max_len, product2token, padding_token=-2, mask_token=-1, mask=0.0):
         self.filepath = filepath
         self.max_len = max_len
         self.product2token = product2token
         self.padding_token = padding_token
         self.mask_token = mask_token
-        self.repeat_edges = repeat_edges
         self.mask = mask
         self.file_reader = FileReader(file_path=filepath)
 
     def __len__(self):
-        return len(self.file_reader)
+        return len(self.file_reader.line_offsets)
 
     def left_pad(self, tensor, target_size, pad_value=0):
         """Left pad a tensor until it reaches the target size, return a binary mask and padding count."""
@@ -92,25 +94,40 @@ class ECommerceDS(Dataset):
             dst = zero_index_products[:-1]
 
         edges = torch.stack((src, dst), dim=0)
-        return edges
-        
-    def create_graph(self, unpadded_products):
-        zero_index_products = self.zero_index_products(unpadded_products)
-
-        all_edges = self.compute_edges(zero_index_products, edge_type="outgoing")
-        
-        unique_edges, freq = torch.unique(all_edges, dim=1, return_counts=True)
-        source_counts = torch.bincount(all_edges[0])
+        unique_edges, freq = torch.unique(edges, dim=1, return_counts=True)
+        source_counts = torch.bincount(edges[0])
         weights = torch.zeros(unique_edges.shape[1])
-        # Calculate weights for each unique edge
         for i in range(unique_edges.shape[1]):
             source_node = unique_edges[0, i]
             weights[i] = freq[i] / source_counts[source_node]
-        print("Unique edges:\n", unique_edges)
-        print("Frequencies:\n", freq)
-        print("Weights:\n", weights)
 
-        return unique_edges
+        return unique_edges, weights
+    
+    def get_unique_nodes(self, nodes):
+        nodes_npy = nodes.numpy()
+        # _, idx = np.unique(nodes_npy, return_index=True)
+        # result = nodes_npy[np.sort(idx)]
+        result = pd.unique(nodes_npy)
+        result_tensor = torch.tensor(result)
+        return result_tensor
+        
+    def create_graph(self, unpadded_products):
+        zero_index_products = self.zero_index_products(unpadded_products)
+        unique_products = self.get_unique_nodes(unpadded_products)
+        
+        out_unique_edges, out_weights = self.compute_edges(zero_index_products, edge_type="outgoing")
+        in_unique_edges, in_weights = self.compute_edges(zero_index_products, edge_type="incoming")
+
+        all_edges = torch.cat((out_unique_edges, in_unique_edges), dim=-1)
+        all_weights = torch.cat((out_weights, in_weights), dim=-1)
+        
+        data = Data(
+            x=unique_products.unsqueeze(1), 
+            edge_index=all_edges, 
+            edge_weights=all_weights
+        )
+
+        return data
 
     def __getitem__(self, idx):
         line_str = self.file_reader.read_line_by_number(idx)
@@ -137,11 +154,10 @@ class ECommerceDS(Dataset):
         products = self.get_token_ids(products)
         unpadded_products = self.get_token_ids(unpadded_products)
 
-        print(unpadded_products)
-        edge_indices = self.create_graph(unpadded_products)
-        print(edge_indices)
+        graph = self.create_graph(unpadded_products)
 
         return {
+            "graph": graph,
             "masked_products": masked_products, 
             "products": products, 
             "attention_mask": attention_mask,
@@ -179,12 +195,13 @@ class FileReader:
             f.seek(self.line_offsets[line_num])
             return f.readline().strip()
         
-filepath = "data/splits/train.jsonl"
-max_len = 50
-product2token_fp = "data/product2token.json"
-with open(product2token_fp, mode="r") as f:
-    product2token = json.load(f)
-repeat_edges = True
-ds = ECommerceDS(filepath, max_len, product2token, padding_token=-2, mask_token=-1, repeat_edges=True, mask=.7)
+# filepath = "data/splits/train.jsonl"
+# max_len = 50
+# product2token_fp = "data/product2token.json"
+# with open(product2token_fp, mode="r") as f:
+#     product2token = json.load(f)
+# ds = ECommerceDS(filepath, max_len, product2token, padding_token=-2, mask_token=-1, mask=.15)
 
-print(ds[10000])
+# dl = DataLoader(ds, batch_size=4)
+
+# print(next(iter(dl)))
