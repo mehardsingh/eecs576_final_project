@@ -8,13 +8,14 @@ from torch_geometric.data import Data
 import pandas as pd
 
 class ECommerceDS(Dataset):
-    def __init__(self, filepath, max_len, product2token, padding_token=-2, mask_token=-1, mask=0.0):
+    def __init__(self, filepath, max_len, product2token, padding_token=-2, mask_token=-1, mask=0.0, graph_remove_last=True):
         self.filepath = filepath
         self.max_len = max_len
         self.product2token = product2token
         self.padding_token = padding_token
         self.mask_token = mask_token
         self.mask = mask
+        self.graph_remove_last = graph_remove_last
         self.file_reader = FileReader(file_path=filepath)
 
     def __len__(self):
@@ -70,19 +71,41 @@ class ECommerceDS(Dataset):
         
         return mapped_products
     
+    # def zero_index_products(self, unpadded_products, edge_type="outgoing"):
+    #     # Dictionary to map each unique value to an index
+    #     value_to_index = {}
+    #     reindexed_tensor = []
+
+    #     # Loop through the tensor and assign new indices
+    #     for value in unpadded_products:
+    #         if value.item() not in value_to_index:
+    #             value_to_index[value.item()] = len(value_to_index)  # Assign the next available index
+    #         reindexed_tensor.append(value_to_index[value.item()])
+
+    #     # Convert the result to a tensor
+    #     reindexed_tensor = torch.tensor(reindexed_tensor)
+    #     return reindexed_tensor
+
     def zero_index_products(self, unpadded_products, edge_type="outgoing"):
+        # Reverse the tensor
+        reversed_products = torch.flip(unpadded_products, dims=[0])
+        
         # Dictionary to map each unique value to an index
         value_to_index = {}
         reindexed_tensor = []
 
-        # Loop through the tensor and assign new indices
-        for value in unpadded_products:
+        # Loop through the reversed tensor and assign new indices
+        for value in reversed_products:
             if value.item() not in value_to_index:
                 value_to_index[value.item()] = len(value_to_index)  # Assign the next available index
             reindexed_tensor.append(value_to_index[value.item()])
 
         # Convert the result to a tensor
         reindexed_tensor = torch.tensor(reindexed_tensor)
+
+        # Reverse the reindexed tensor at the end
+        reindexed_tensor = torch.flip(reindexed_tensor, dims=[0])
+
         return reindexed_tensor
     
     def compute_edges(self, zero_index_products, edge_type="outgoing"):
@@ -104,16 +127,23 @@ class ECommerceDS(Dataset):
         return unique_edges, weights
     
     def get_unique_nodes(self, nodes):
-        nodes_npy = nodes.numpy()
-        # _, idx = np.unique(nodes_npy, return_index=True)
-        # result = nodes_npy[np.sort(idx)]
+        # Convert the tensor to numpy and reverse it
+        nodes_npy = nodes.numpy()[::-1].copy()
+        
+        # Get unique nodes using pd.unique
         result = pd.unique(nodes_npy)
+        
+        # Convert the result back to a tensor
         result_tensor = torch.tensor(result)
+        
+        # Reverse the result tensor
+        result_tensor = torch.flip(result_tensor, dims=[0])
+        
         return result_tensor
         
     def create_graph(self, unpadded_products):
-        zero_index_products = self.zero_index_products(unpadded_products)
-        unique_products = self.get_unique_nodes(unpadded_products)
+        zero_index_products = self.zero_index_products(unpadded_products) # 1, 2, 4, 3, 4 -> # 0, 1, 2, 3, 2
+        unique_products = self.get_unique_nodes(unpadded_products) # 2, 3, 1, 0 (reverse order)
         
         out_unique_edges, out_weights = self.compute_edges(zero_index_products, edge_type="outgoing")
         in_unique_edges, in_weights = self.compute_edges(zero_index_products, edge_type="incoming")
@@ -154,7 +184,10 @@ class ECommerceDS(Dataset):
         products = self.get_token_ids(products)
         unpadded_products = self.get_token_ids(unpadded_products)
 
-        graph = self.create_graph(unpadded_products)
+        if self.graph_remove_last:
+            graph = self.create_graph(unpadded_products[:-1])
+        else:
+            graph = self.create_graph(unpadded_products)
 
         return {
             "graph": graph,

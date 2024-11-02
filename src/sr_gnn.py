@@ -53,7 +53,6 @@ class GNNModel(nn.Module):
         self.hidden_size, self.n_node = hidden_size, n_node
         self.embedding = nn.Embedding(self.n_node, self.hidden_size)
         self.gated = GatedGraphConv(self.hidden_size, num_layers=1)
-        self.e2s = Embedding2Score(self.hidden_size)
         self.loss_function = nn.CrossEntropyLoss()
         self.reset_parameters()
         
@@ -63,10 +62,34 @@ class GNNModel(nn.Module):
             weight.data.uniform_(-stdv, stdv)
 
     def forward(self, data):
-        x, edge_index, batch = data.x - 1, data.edge_index, data.batch
+        x, edge_index, batch = data.x, data.edge_index, data.batch
 
         embedding = self.embedding(x).squeeze()
         hidden = self.gated(embedding, edge_index)
         hidden2 = F.relu(hidden)
   
-        return self.e2s(hidden2, self.embedding, batch)
+        return hidden2
+    
+class SRGNN(nn.Module):
+    """
+    Args:
+        hidden_size: the number of units in a hidden layer.
+        n_node: the number of items in the whole item set for embedding layer.
+    """
+    def __init__(self, hidden_size, n_node):
+        super(SRGNN, self).__init__()
+        self.hidden_size = hidden_size
+        self.gnn = GNNModel(hidden_size, n_node)
+        self.e2s = Embedding2Score(hidden_size)
+        self.reset_parameters()
+        
+    def reset_parameters(self):
+        stdv = 1.0 / math.sqrt(self.hidden_size)
+        for weight in self.parameters():
+            weight.data.uniform_(-stdv, stdv)
+
+    def forward(self, data):
+        x, edge_index, batch = data.x, data.edge_index, data.batch
+
+        h = self.gnn(data)
+        return self.e2s(h, self.gnn.embedding, batch)

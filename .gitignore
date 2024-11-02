@@ -1,2 +1,3 @@
 data/
 filtered_output_file.csv
+*.pyc
