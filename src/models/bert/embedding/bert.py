@@ -14,7 +14,7 @@ class BERTEmbedding(nn.Module):
         sum of all these features are output of BERTEmbedding
     """
 
-    def __init__(self, vocab_size, embed_size, dropout=0.1):
+    def __init__(self, vocab_size, embed_size, pe_type, dropout=0.1):
         """
         :param vocab_size: total vocab size
         :param embed_size: embedding size of token embedding
@@ -22,7 +22,7 @@ class BERTEmbedding(nn.Module):
         """
         super().__init__()
         self.token = TokenEmbedding(vocab_size=vocab_size, embed_size=embed_size)
-        self.position = PositionalEmbedding(d_model=self.token.embedding_dim)
+        self.position = PositionalEmbedding(d_model=self.token.embedding_dim, pe_type=pe_type)
 
         # we don't need segment emebdding
         # self.segment = SegmentEmbedding(embed_size=self.token.embedding_dim)

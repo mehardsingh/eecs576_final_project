@@ -3,9 +3,9 @@ import torch.nn as nn
 from models.bert.bert import BERT
 
 class BERT4Rec(nn.Module):
-    def __init__(self, vocab_size, hidden=768, n_layers=12, attn_heads=12, dropout=0.1):
+    def __init__(self, vocab_size, hidden=768, n_layers=12, attn_heads=12, dropout=0.1, pe_type="lpe"):
         super(BERT4Rec, self).__init__()
-        self.bert = BERT(vocab_size, hidden, n_layers, attn_heads, dropout)
+        self.bert = BERT(vocab_size, hidden, n_layers, attn_heads, dropout, pe_type)
 
         self.cls_head = nn.Sequential(
             nn.Linear(hidden, hidden),

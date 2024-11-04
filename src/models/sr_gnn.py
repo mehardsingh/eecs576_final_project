@@ -48,12 +48,13 @@ class GNNModel(nn.Module):
         hidden_size: the number of units in a hidden layer.
         n_node: the number of items in the whole item set for embedding layer.
     """
-    def __init__(self, hidden_size, n_node):
+    def __init__(self, hidden_size, n_node, num_layers):
         super(GNNModel, self).__init__()
         self.hidden_size, self.n_node = hidden_size, n_node
         self.embedding = nn.Embedding(self.n_node, self.hidden_size)
-        self.gated = GatedGraphConv(self.hidden_size, num_layers=1)
+        self.gated = GatedGraphConv(self.hidden_size, num_layers=num_layers)
         self.loss_function = nn.CrossEntropyLoss()
+
         self.reset_parameters()
         
     def reset_parameters(self):
@@ -76,10 +77,10 @@ class SRGNN(nn.Module):
         hidden_size: the number of units in a hidden layer.
         n_node: the number of items in the whole item set for embedding layer.
     """
-    def __init__(self, hidden_size, n_node):
+    def __init__(self, hidden_size, n_node, num_layers):
         super(SRGNN, self).__init__()
         self.hidden_size = hidden_size
-        self.gnn = GNNModel(hidden_size, n_node)
+        self.gnn = GNNModel(hidden_size, n_node, num_layers)
         self.e2s = Embedding2Score(hidden_size)
         self.reset_parameters()
         

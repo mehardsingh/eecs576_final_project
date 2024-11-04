@@ -9,7 +9,7 @@ class PositionalEmbedding(nn.Module):
         super().__init__()
 
         # sinusoidal pe
-        if pe_type == "sinusoidal":
+        if pe_type == "sin":
             # Compute the positional encodings once in log space.
             pe = torch.zeros(max_len, d_model).float()
             pe.require_grad = False
@@ -30,7 +30,7 @@ class PositionalEmbedding(nn.Module):
 
         # no pe
         else:
-            pe = nn.Parameter(torch.zeros(max_len, d_model), requires_grad=True)
+            pe = nn.Parameter(torch.zeros(max_len, d_model), requires_grad=False)
             pe = pe.unsqueeze(0)
         
         self.register_buffer('pe', pe)
