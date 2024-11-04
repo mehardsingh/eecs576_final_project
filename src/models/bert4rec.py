@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from bert.bert import BERT
+from models.bert.bert import BERT
 
 class BERT4Rec(nn.Module):
     def __init__(self, vocab_size, hidden=768, n_layers=12, attn_heads=12, dropout=0.1):

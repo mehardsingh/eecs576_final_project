@@ -1,10 +1,10 @@
-from bert.embedding.position import PositionalEmbedding
-from bert.bert import BERT
-from bert4rec import BERT4Rec
+# from bert.embedding.position import PositionalEmbedding
+# from bert.bert import BERT
+from models.bert4rec import BERT4Rec
 import torch
 from dataset import ECommerceDS
 import json
-from sr_gnn import GNNModel, SRGNN
+from models.sr_gnn import GNNModel, SRGNN
 from torch_geometric.loader import DataLoader
 
 with open("data/product2token.json", mode="r") as f:
