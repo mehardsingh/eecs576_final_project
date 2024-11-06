@@ -158,6 +158,17 @@ class ECommerceDS(Dataset):
         )
 
         return data
+    
+    def create_alibi_matrix(self, times):
+        times = [t.timestamp() for t in times]
+        n = len(times)
+        times = torch.tensor(times, dtype=torch.float32)
+        # Expand dimensions to create a grid of time points
+        times_i = times.unsqueeze(0).expand(n, n)
+        times_j = times.unsqueeze(1).expand(n, n)
+        alibi_matrix = times_i - times_j
+        
+        return alibi_matrix
 
     def __getitem__(self, idx):
         line_str = self.file_reader.read_line_by_number(idx)
@@ -165,6 +176,7 @@ class ECommerceDS(Dataset):
 
         # get products
         products = torch.tensor(sample["products"])
+        times = torch.tensor(sample['times'])
         if type(self.mask) == float:
             indices = torch.arange(products.shape[0])
             cloze_mask = self.create_cloze_mask(indices, self.mask)
@@ -184,6 +196,9 @@ class ECommerceDS(Dataset):
         products = self.get_token_ids(products)
         unpadded_products = self.get_token_ids(unpadded_products)
 
+        # padded_times = self.left_pad(times, self.max_len, pad_value=self.padding_token)
+        # alibi = self.create_alibi_matrix(padded_times)
+
         if self.graph_remove_last:
             graph = self.create_graph(unpadded_products[:-1])
         else:
@@ -193,8 +208,10 @@ class ECommerceDS(Dataset):
             "graph": graph,
             "masked_products": masked_products, 
             "products": products, 
+            'times' : times,
             "attention_mask": attention_mask,
-            "cloze_mask": cloze_mask
+            "cloze_mask": cloze_mask,
+            # 'alibi': alibi
         }
 
 class FileReader:
@@ -228,12 +245,14 @@ class FileReader:
             f.seek(self.line_offsets[line_num])
             return f.readline().strip()
         
-# filepath = "data/splits/train.jsonl"
-# max_len = 50
-# product2token_fp = "data/product2token.json"
-# with open(product2token_fp, mode="r") as f:
-#     product2token = json.load(f)
-# ds = ECommerceDS(filepath, max_len, product2token, padding_token=-2, mask_token=-1, mask=.15)
+filepath = "data/splits/train.jsonl"
+max_len = 50
+product2token_fp = "data/product2token.json"
+with open(product2token_fp, mode="r") as f:
+    product2token = json.load(f)
+ds = ECommerceDS(filepath, max_len, product2token, padding_token=-2, mask_token=-1, mask=.15)
+
+print(ds.__getitem__)
 
 # dl = DataLoader(ds, batch_size=4)
 
