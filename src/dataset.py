@@ -5,7 +5,9 @@ import numpy as np
 from torch.utils.data import Dataset
 from torch_geometric.loader import DataLoader
 from torch_geometric.data import Data
+import torch.nn.functional as F
 import pandas as pd
+from datetime import datetime
 
 class ECommerceDS(Dataset):
     def __init__(self, filepath, max_len, product2token, padding_token=-2, mask_token=-1, mask=0.0, graph_remove_last=True):
@@ -159,16 +161,25 @@ class ECommerceDS(Dataset):
 
         return data
     
-    def create_alibi_matrix(self, times):
-        times = [t.timestamp() for t in times]
-        n = len(times)
-        times = torch.tensor(times, dtype=torch.float32)
-        # Expand dimensions to create a grid of time points
-        times_i = times.unsqueeze(0).expand(n, n)
-        times_j = times.unsqueeze(1).expand(n, n)
-        alibi_matrix = times_i - times_j
+    def days_between_timestamps(self, timestamps, M):
+        date_times = [datetime.strptime(ts, "%Y-%m-%d %H:%M:%S UTC") for ts in timestamps]
         
-        return alibi_matrix
+        # Initialize an SxS tensor, where S is the length of the timestamps list
+        S = len(date_times)
+        days_diff_tensor = torch.zeros(S, S)
+        
+        # Calculate the days difference between each pair of dates
+        for i in range(S):
+            for j in range(S):
+                days_diff = abs((date_times[i] - date_times[j]).days)
+                days_diff_tensor[i, j] = days_diff
+        
+        # Pad the SxS tensor to MxM if M > S
+        if M > S:
+            padding = (0, M - S, 0, M - S)  # (left, right, top, bottom)
+            days_diff_tensor = F.pad(days_diff_tensor, padding, mode='constant', value=0)
+        
+        return days_diff_tensor
 
     def __getitem__(self, idx):
         line_str = self.file_reader.read_line_by_number(idx)
@@ -196,8 +207,7 @@ class ECommerceDS(Dataset):
         products = self.get_token_ids(products)
         unpadded_products = self.get_token_ids(unpadded_products)
 
-        # padded_times = self.left_pad(times, self.max_len, pad_value=self.padding_token)
-        # alibi = self.create_alibi_matrix(padded_times)
+        alibi = self.days_between_timestamps(times, self.max_len)
 
         if self.graph_remove_last:
             graph = self.create_graph(unpadded_products[:-1])
@@ -211,7 +221,7 @@ class ECommerceDS(Dataset):
             'times' : times,
             "attention_mask": attention_mask,
             "cloze_mask": cloze_mask,
-            # 'alibi': alibi
+            'alibi': alibi
         }
 
 class FileReader:
@@ -254,4 +264,4 @@ class FileReader:
 
 # dl = DataLoader(ds, batch_size=4)
 
-# print(next(iter(dl)))
+# next(iter(dl))
