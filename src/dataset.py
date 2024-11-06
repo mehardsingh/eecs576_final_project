@@ -176,7 +176,7 @@ class ECommerceDS(Dataset):
 
         # get products
         products = torch.tensor(sample["products"])
-        times = torch.tensor(sample['times'])
+        times = sample['times']
         if type(self.mask) == float:
             indices = torch.arange(products.shape[0])
             cloze_mask = self.create_cloze_mask(indices, self.mask)
@@ -245,14 +245,12 @@ class FileReader:
             f.seek(self.line_offsets[line_num])
             return f.readline().strip()
         
-filepath = "data/splits/train.jsonl"
-max_len = 50
-product2token_fp = "data/product2token.json"
-with open(product2token_fp, mode="r") as f:
-    product2token = json.load(f)
-ds = ECommerceDS(filepath, max_len, product2token, padding_token=-2, mask_token=-1, mask=.15)
-
-print(ds.__getitem__)
+# filepath = "data/splits/train.jsonl"
+# max_len = 50
+# product2token_fp = "data/product2token.json"
+# with open(product2token_fp, mode="r") as f:
+#     product2token = json.load(f)
+# ds = ECommerceDS(filepath, max_len, product2token, padding_token=-2, mask_token=-1, mask=.15)
 
 # dl = DataLoader(ds, batch_size=4)
 
