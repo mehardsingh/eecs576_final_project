@@ -1,0 +1,2 @@
+test_loss,test_recall@1,test_recall@5,test_recall@10,test_recall@20,test_mrr
+4.255914688110352,0.265625,0.546875,0.62890625,0.69140625,0.39966022968292236

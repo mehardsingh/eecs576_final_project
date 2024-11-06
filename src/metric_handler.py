@@ -32,12 +32,12 @@ class MetricHandler:
             self.metric_dict[metric_name].append(batch_averages[metric_name])
         return self.metric_dict
     
-    def save(self):
+    def save(self, save_name="progress.csv"):
         df = pd.DataFrame.from_dict(self.metric_dict)
-        df.to_csv(os.path.join(self.save_dir, "progress.csv"), index=False)
+        df.to_csv(os.path.join(self.save_dir, save_name), index=False)
 
-    def all_update_save_clear(self):
+    def all_update_save_clear(self, save_name="progress.csv"):
         self.all_update()
-        self.save()
+        self.save(save_name)
         self.clear()
 
