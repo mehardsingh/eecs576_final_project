@@ -179,7 +179,6 @@ class ECommerceDS(Dataset):
             padding = (0, M - S, 0, M - S)  # (left, right, top, bottom)
             days_diff_tensor = F.pad(days_diff_tensor, padding, mode='constant', value=0)
         
-        print(days_diff_tensor)
         return days_diff_tensor
 
     def __getitem__(self, idx):
