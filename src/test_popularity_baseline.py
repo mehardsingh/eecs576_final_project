@@ -3,6 +3,7 @@ from collections import Counter
 import torch
 import argparse
 from metrics import compute_recall_at_k, compute_mrr
+from datetime import datetime
 
 def load_product2token(filepath):
     """
@@ -79,7 +80,13 @@ def create_logits(product2token, product_counts):
 
     return logits.unsqueeze(0)  # Shape (1, num_products)
 
-def calculate_metrics(val_fp, product2token, product_counts, k=20):
+def common_sequence_product(sequence):
+    product_counts = Counter()
+    product_counts.update(sequence)
+
+    return max(product_counts, key=product_counts.get)
+
+def calculate_metrics(val_fp, product2token, product_counts, k=20, prioritize="none", ignore_time=0):
     """
     Calculates recall@k and MRR metrics for the baseline recommendation.
     
@@ -101,15 +108,42 @@ def calculate_metrics(val_fp, product2token, product_counts, k=20):
         for line in file:
             user_data = json.loads(line)
             true_products = user_data["products"]
+            product_times = user_data["times"]
             true_product = true_products[-1]  # Only consider the last product in the sequence
+
+            #Ignore predictions where there is less than ignore_time days between the last purchase and the prediction purchase
+            if ignore_time > 0 and (datetime.strptime(product_times[-1], "%Y-%m-%d %H:%M:%S UTC") - datetime.strptime(product_times[-2], "%Y-%m-%d %H:%M:%S UTC")).days >= ignore_time:
             
-            if str(true_product) in product2token:
-                true_product_idx = product2token[str(true_product)]
-                recall_at_k = compute_recall_at_k(logits, torch.tensor([true_product_idx]), k=k)
-                mrr = compute_mrr(logits, torch.tensor([true_product_idx]))
-                
-                recall_scores.append(recall_at_k)
-                mrr_scores.append(mrr)
+                if str(true_product) in product2token:
+                    true_product_idx = product2token[str(true_product)]
+
+                    #Make the last product purchased be the most likely prediction
+                    if prioritize == "last_product" and true_products[-2]:
+
+                        logits_copy = logits.clone()
+                        logits_copy[0][product2token[str(true_products[-2])]] = 1
+                        recall_at_k = compute_recall_at_k(logits_copy, torch.tensor([true_product_idx]), k=k)
+                        mrr = compute_mrr(logits_copy, torch.tensor([true_product_idx]))
+                        del logits_copy
+
+                    #Make the most frequent product in the purhcase history be the most likely prediction
+                    elif prioritize == "frequent":
+
+                        logits_copy = logits.clone()
+                        logits_copy[0][product2token[str(common_sequence_product(true_products))]] = 1
+                        recall_at_k = compute_recall_at_k(logits_copy, torch.tensor([true_product_idx]), k=k)
+                        mrr = compute_mrr(logits_copy, torch.tensor([true_product_idx]))
+                        del logits_copy
+                    
+                    #Use the most common products in all training data sequences
+                    else:
+
+                        recall_at_k = compute_recall_at_k(logits, torch.tensor([true_product_idx]), k=k)
+                        mrr = compute_mrr(logits, torch.tensor([true_product_idx]))
+
+                    
+                    recall_scores.append(recall_at_k)
+                    mrr_scores.append(mrr)
     
     average_recall_at_k = sum(recall_scores) / len(recall_scores)
     average_mrr = sum(mrr_scores) / len(mrr_scores)
@@ -124,7 +158,21 @@ def calculate_metrics(val_fp, product2token, product_counts, k=20):
 def main(args):
     product2token = load_product2token(args.product2token_fp)
     product_counts = get_product_popularity(args.train_ds_fp)
-    metrics = calculate_metrics(args.val_ds_fp, product2token, product_counts, k=args.top_k)
+
+    print("By most common products")
+    metrics = calculate_metrics(args.val_ds_fp, product2token, product_counts, k=args.top_k, ignore_time=2)
+    print(f"Recall@{args.top_k}: {metrics['recall@k']}")
+    print(f"MRR: {metrics['mrr']}")
+    print("")
+
+    print("Prioritize last product in sequence")
+    metrics = calculate_metrics(args.val_ds_fp, product2token, product_counts, k=args.top_k, prioritize="last_product", ignore_time=2)
+    print(f"Recall@{args.top_k}: {metrics['recall@k']}")
+    print(f"MRR: {metrics['mrr']}")
+    print("")
+
+    print("Prioritize most common product in sequence")
+    metrics = calculate_metrics(args.val_ds_fp, product2token, product_counts, k=args.top_k, prioritize="frequent", ignore_time=2)
     print(f"Recall@{args.top_k}: {metrics['recall@k']}")
     print(f"MRR: {metrics['mrr']}")
 
