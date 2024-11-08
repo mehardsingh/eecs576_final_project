@@ -176,7 +176,7 @@ class ECommerceDS(Dataset):
         
         # Pad the SxS tensor to MxM if M > S
         if M > S:
-            padding = (0, M - S, 0, M - S)  # (left, right, top, bottom)
+            padding = (M - S, 0, M - S, 0)  # (left, right, top, bottom)
             days_diff_tensor = F.pad(days_diff_tensor, padding, mode='constant', value=0)
         
         return days_diff_tensor
