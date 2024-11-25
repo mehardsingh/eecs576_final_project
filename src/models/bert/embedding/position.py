@@ -12,7 +12,7 @@ class PositionalEmbedding(nn.Module):
         if pe_type == "sin":
             # Compute the positional encodings once in log space.
             pe = torch.zeros(max_len, d_model).float()
-            pe.require_grad = False
+            pe.requires_grad = False
 
             position = torch.arange(0, max_len).float().unsqueeze(1)
             div_term = (torch.arange(0, d_model, 2).float() * -(math.log(10000.0) / d_model)).exp()
@@ -30,7 +30,8 @@ class PositionalEmbedding(nn.Module):
 
         # no pe
         else:
-            pe = nn.Parameter(torch.zeros(max_len, d_model), requires_grad=False)
+            print(">> Not using positional embeddings")
+            pe = torch.zeros(max_len, d_model)
             pe = pe.unsqueeze(0)
         
         self.register_buffer('pe', pe)

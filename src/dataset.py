@@ -170,9 +170,11 @@ class ECommerceDS(Dataset):
         
         # Calculate the days difference between each pair of dates
         for i in range(S):
-            for j in range(S):
+            for j in range(i):
                 days_diff = abs((date_times[i] - date_times[j]).days)
                 days_diff_tensor[i, j] = days_diff
+
+        days_diff_tensor = days_diff_tensor + days_diff_tensor.T
         
         # Pad the SxS tensor to MxM if M > S
         if M > S:

@@ -37,8 +37,8 @@ class Attention(nn.Module):
 
         if alibi is not None:
             num_heads = query.shape[1]
-            slopes = self.calculate_slopes(num_heads)
-            alibi_final = self.mul_slope(alibi, slopes)
+            slopes = self.calculate_slopes(num_heads).to(alibi.device)
+            alibi_final = -self.mul_slope(alibi, slopes)
             scores = scores + alibi_final
 
         if mask is not None:
